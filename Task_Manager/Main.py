@@ -16,11 +16,12 @@ class Processor_Data(object):
         self.chart=chart
         self.lines=[]
         for x in range(threads_number):
-            line=Line2D(self.time,self.cpu_usage[x],color=self.color(x))
+            line=Line2D(self.time,self.cpu_usage[x],color=self.color(x),label=str(x) + 'thread')
             self.lines.append(line)
             self.chart.add_line(line)
 
     def update_data(self,data):
+        self.chart.legend(bbox_to_anchor=(1, 1), loc=1, borderaxespad=0.)
         last_time=self.time[-1]
         if last_time>self.time[0]+self.maxtime or len(self.time)>10 and last_time>self.time[-11]+self.maxtime:
             self.chart.set_xlim([self.time[-11],self.time[-1]+1])
@@ -50,22 +51,24 @@ class Processor_Data(object):
         elif value == 5:
             return 'grey'
 
-    def reset(self):
-        self.lines=[]
-        self.time=[]
-        self.cpu_usage=[]
-
 class Memory_Data(object):
-    def __init__(self,bar):
+    def __init__(self,bar,ax):
         self.bar=bar
+        self.ax=ax
 
     def update_data(self,data):
-        self.bar.set_height(data)
+        self.bar.set_height(data[2])
+        self.ax.text(0.85, 20, 'Current RAM usage: '+ str(data[2])+ '%  ' , style='italic',
+                bbox={'facecolor': 'red', 'alpha': 0.5, 'pad': 10})
+        ram_used=data[3]
+        ram_used=round(data[3]/1000000000,2)
+        self.ax.text(0.85, 10, 'Current RAM usage: ' + str(ram_used) + 'GB', style='italic',
+                     bbox={'facecolor': 'red', 'alpha': 0.6, 'pad': 10})
         return self.bar
 
     def get_data(self):
         while True:
-            yield psutil.virtual_memory()[2]
+            yield psutil.virtual_memory()
 
 class Manager(object):
 
@@ -75,13 +78,10 @@ class Manager(object):
         self.ani = None
         m_button = plt.axes([0.4, 0.92, 0.1, 0.05])
         c_button = plt.axes([0.5, 0.92, 0.1, 0.05])
-        n_button = plt.axes([0.6, 0.92, 0.1, 0.05])
         memory_button = Button(m_button,'Memory')
         cpu_button = Button(c_button,'CPU')
-        network_button=Button(n_button,'Network')
         cpu_button.on_clicked(self.cpu_clicked)
         memory_button.on_clicked(self.mem_clicked)
-        network_button.on_clicked(self.net_clicked)
         plt.show()
 
     def cpu_clicked(self,event):
@@ -109,12 +109,9 @@ class Manager(object):
         self.ax.set_ylim(0,100)
         self.ax.set_ylabel('Percent usage')
         rect, = self.ax.bar(1,0,color='blue')
-        mem=Memory_Data(rect)
+        mem=Memory_Data(rect,self.ax)
         self.ani = animation.FuncAnimation(self.fig,mem.update_data, mem.get_data, interval=100)
         plt.show()
-
-    def net_clicked(self,event):
-        plt.clf()
 
 
 manager = Manager()
